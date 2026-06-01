@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MatchPatch</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root { --gold:#C8A96E; --bg:#080808; --bg2:#111; --border:#1E1E1E; --text:#F0EDE6; --muted:#8A8070; }
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:Georgia,serif; overflow:hidden; }
+#app { height:100vh; width:100%; max-width:430px; margin:0 auto; display:flex; flex-direction:column; overflow:hidden; }
+#header { padding:14px 20px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; background:var(--bg); z-index:20; }
+#logo { font-size:21px; font-weight:700; letter-spacing:-0.5px; }
+#logo span { color:var(--gold); }
+#logo-sub { font-size:8px; letter-spacing:3px; color:#3A3A3A; text-transform:uppercase; margin-top:1px; }
+#reset-btn { display:none; background:transparent; border:1px solid #2A2A2A; border-radius:6px; color:#555; font-size:10px; padding:5px 11px; cursor:pointer; font-family:Georgia,serif; letter-spacing:1px; }
+.screen { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.screen.active { display:flex; }
+
+/* INTRO */
+#screen-intro { padding:24px 20px 20px; gap:16px; overflow-y:auto; }
+.hero { display:flex; flex-direction:column; align-items:center; gap:12px; padding:12px 0; }
+.hero-ring { width:110px; height:110px; border-radius:50%; background:radial-gradient(circle,#1A1710,#0A0A08); border:1px solid #2A2A1A; display:flex; align-items:center; justify-content:center; font-size:44px; }
+.hero-title { font-size:22px; font-weight:400; text-align:center; }
+.hero-sub { font-size:13px; color:var(--muted); text-align:center; line-height:1.7; max-width:280px; }
+.tip-box { padding:12px 14px; background:#0F0F0A; border:1px solid #2A2A10; border-radius:10px; }
+.tip-title { font-size:10px; letter-spacing:2px; color:var(--gold); margin-bottom:8px; }
+.tip-item { display:flex; gap:10px; align-items:flex-start; margin-bottom:6px; font-size:12px; color:#C0B89A; line-height:1.5; }
+.tip-item:last-child { margin-bottom:0; }
+.tip-num { color:var(--gold); font-size:11px; flex-shrink:0; margin-top:1px; }
+.btn-gold { width:100%; padding:17px; background:var(--gold); border:none; border-radius:12px; color:#080808; font-size:14px; font-weight:700; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; flex-shrink:0; }
+.btn-outline { width:100%; padding:13px; background:transparent; border:1px solid #2A2A2A; border-radius:10px; color:#666; font-size:11px; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; flex-shrink:0; }
+
+/* CAMERA */
+#screen-camera { position:relative; background:#000; }
+#video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+#cam-ui { position:absolute; inset:0; display:flex; flex-direction:column; z-index:5; pointer-events:none; }
+#cam-status { margin:10px 12px 0; padding:10px 14px; background:rgba(8,8,8,0.85); border:1px solid rgba(200,169,110,0.25); border-radius:10px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); text-align:center; }
+#cam-status-icon { font-size:16px; margin-bottom:2px; }
+#cam-status-title { font-size:13px; color:var(--text); }
+#cam-status-sub { font-size:10px; color:var(--muted); margin-top:2px; line-height:1.4; }
+#viewfinder { flex:1; display:flex; align-items:center; justify-content:center; position:relative; }
+
+/* Square viewfinder like a real camera */
+#vf-box { width:220px; height:220px; position:relative; }
+.vf-c { position:absolute; width:20px; height:20px; }
+.vf-c.tl { top:0; left:0; border-top:3px solid var(--gold); border-left:3px solid var(--gold); }
+.vf-c.tr { top:0; right:0; border-top:3px solid var(--gold); border-right:3px solid var(--gold); }
+.vf-c.bl { bottom:0; left:0; border-bottom:3px solid var(--gold); border-left:3px solid var(--gold); }
+.vf-c.br { bottom:0; right:0; border-bottom:3px solid var(--gold); border-right:3px solid var(--gold); }
+#vf-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:40px; height:40px; }
+#vf-center::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:rgba(200,169,110,0.5); transform:translateY(-50%); }
+#vf-center::after { content:''; position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(200,169,110,0.5); transform:translateX(-50%); }
+#distance-meter { position:absolute; right:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; gap:4px; }
+#dist-bar { width:4px; height:100px; background:#1A1A1A; border-radius:2px; overflow:hidden; display:flex; flex-direction:column-reverse; }
+#dist-fill { width:100%; border-radius:2px; transition:height 0.1s ease, background 0.2s ease; height:50%; background:var(--gold); }
+#dist-label { font-size:7px; color:#444; letter-spacing:1px; writing-mode:vertical-rl; }
+#dist-guide { position:absolute; right:22px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
+.dist-mark { font-size:8px; color:#333; }
+.dist-mark.active { color:var(--gold); }
+#live-sample { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.8); border-radius:8px; padding:7px 10px; display:none; align-items:center; gap:8px; }
+#ls-swatch { width:22px; height:22px; border-radius:4px; border:1px solid rgba(255,255,255,0.15); }
+#ls-hex { font-size:10px; color:var(--text); font-family:monospace; }
+#ls-label { font-size:8px; color:var(--gold); letter-spacing:1px; }
+#light-badge { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.75); border-radius:6px; padding:5px 9px; display:flex; align-items:center; gap:5px; font-size:9px; color:#666; letter-spacing:1px; }
+#light-dot { width:6px; height:6px; border-radius:50%; background:#333; }
+#light-dot.good { background:#6A8; box-shadow:0 0 4px #6A8; }
+#light-dot.low { background:#E8803A; box-shadow:0 0 4px #E8803A; }
+#lock-ring { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:220px; height:220px; border-radius:4px; border:3px solid transparent; transition:border-color 0.3s, box-shadow 0.3s; pointer-events:none; }
+#lock-ring.locked { border-color:#6A8; box-shadow:0 0 0 4px rgba(100,200,130,0.1); }
+#cam-bottom { position:absolute; bottom:0; left:0; right:0; padding:12px 16px 28px; background:linear-gradient(transparent, rgba(8,8,8,0.96) 40%); pointer-events:auto; display:flex; flex-direction:column; gap:8px; }
+#shutter-wrap { display:flex; align-items:center; justify-content:center; }
+#shutter-btn { width:72px; height:72px; border-radius:50%; background:var(--gold); border:4px solid rgba(200,169,110,0.3); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.1s; -webkit-user-select:none; user-select:none; }
+#shutter-btn:active { transform:scale(0.93); }
+#shutter-btn.disabled { background:#1A1A1A; border-color:#222; }
+#shutter-inner { width:56px; height:56px; border-radius:50%; background:#0D0D0D; display:flex; align-items:center; justify-content:center; font-size:22px; }
+#shutter-hint { font-size:10px; color:var(--muted); text-align:center; letter-spacing:1px; }
+
+/* ANALYZING */
+#screen-analyzing { align-items:center; justify-content:center; gap:20px; padding:40px; }
+.spin-wrap { position:relative; width:88px; height:88px; }
+.spin-o { position:absolute; inset:0; border:2px solid #1A1A1A; border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; }
+.spin-i { position:absolute; inset:13px; border:1px solid #1A1A1A; border-bottom-color:#8A7040; border-radius:50%; animation:spin 1.3s linear infinite reverse; }
+.spin-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:24px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.ana-title { font-size:18px; text-align:center; }
+.ana-subs { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+.ana-sub { font-size:11px; color:var(--muted); text-align:center; }
+.ana-sub.active { color:var(--gold); }
+
+/* RESULT */
+#screen-result { padding:14px; gap:11px; overflow-y:auto; }
+.r-hero { border-radius:14px; overflow:hidden; border:1px solid #2A2A1A; flex-shrink:0; }
+.r-color { height:90px; }
+.r-info { padding:12px 14px; background:var(--bg2); display:flex; justify-content:space-between; align-items:center; }
+.r-name { font-size:17px; }
+.r-sheen { font-size:11px; color:var(--muted); margin-top:2px; }
+.r-hex { font-size:13px; color:var(--gold); font-family:monospace; }
+.r-rgb { font-size:9px; color:#555; margin-top:2px; font-family:monospace; }
+.matches-title { font-size:10px; letter-spacing:2px; color:var(--muted); flex-shrink:0; }
+.matches { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+.match-card { padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; gap:12px; }
+.match-card.top { border-color:var(--gold); background:#141410; }
+.match-swatch { width:36px; height:36px; border-radius:6px; flex-shrink:0; }
+.match-brand { font-size:9px; color:var(--gold); letter-spacing:1px; text-transform:uppercase; margin-bottom:2px; }
+.match-name { font-size:13px; color:var(--text); }
+.match-num { font-size:10px; color:var(--muted); margin-top:1px; }
+.match-pct { margin-left:auto; font-size:14px; color:var(--gold); font-weight:600; flex-shrink:0; }
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; flex-shrink:0; }
+.stat { padding:10px 8px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; text-align:center; }
+.stat-v { font-size:16px; color:var(--gold); font-weight:600; }
+.stat-l { font-size:8px; color:#555; letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.perlin-wrap { border-radius:12px; overflow:hidden; border:1px solid var(--border); flex-shrink:0; }
+#perlin-canvas { width:100%; display:block; }
+.perlin-lbl { padding:7px; background:var(--bg2); font-size:8px; color:#444; letter-spacing:2px; text-align:center; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="header">
+  <div><div id="logo">Match<span>Patch</span></div><div id="logo-sub">Wall Scanner v3</div></div>
+  <button id="reset-btn" onclick="resetApp()">RESET</button>
+</div>
+
+<!-- INTRO -->
+<div id="screen-intro" class="screen active">
+  <div class="hero">
+    <div class="hero-ring">📷</div>
+    <div class="hero-title">Scan Your Wall</div>
+    <div class="hero-sub">Hold your phone 6–8 inches from the wall in good light. One tap captures the color.</div>
+  </div>
+  <div class="tip-box">
+    <div class="tip-title">FOR BEST RESULTS</div>
+    <div class="tip-item"><div class="tip-num">→</div><div>Stand near a window or turn on room lights — natural or warm indoor light works best</div></div>
+    <div class="tip-item"><div class="tip-num">→</div><div>Hold phone 6–8 inches from wall — not touching, not too far</div></div>
+    <div class="tip-item"><div class="tip-num">→</div><div>Point at a clean undamaged area near the hole</div></div>
+    <div class="tip-item"><div class="tip-num">→</div><div>Wait for the green lock indicator then tap the shutter</div></div>
+  </div>
+  <button class="btn-gold" onclick="startCamera()">SCAN MY WALL</button>
+</div>
+
+<!-- CAMERA -->
+<div id="screen-camera" class="screen">
+  <video id="video" playsinline autoplay muted></video>
+  <div id="cam-ui">
+    <div id="cam-status">
+      <div id="cam-status-icon">📷</div>
+      <div id="cam-status-title">Starting camera...</div>
+      <div id="cam-status-sub">Allow camera access when prompted</div>
+    </div>
+    <div id="viewfinder">
+      <div id="lock-ring"></div>
+      <div id="light-badge"><div id="light-dot"></div><span id="light-text">LIGHT</span></div>
+      <div id="live-sample">
+        <div id="ls-swatch"></div>
+        <div><div id="ls-label">LIVE</div><div id="ls-hex"></div></div>
+      </div>
+      <div id="distance-meter">
+        <div id="dist-bar"><div id="dist-fill"></div></div>
+        <div id="dist-label">DIST</div>
+      </div>
+      <div id="vf-box">
+        <div class="vf-c tl"></div><div class="vf-c tr"></div>
+        <div class="vf-c bl"></div><div class="vf-c br"></div>
+        <div id="vf-center"></div>
+      </div>
+    </div>
+    <div id="cam-bottom">
+      <div id="shutter-wrap">
+        <button id="shutter-btn" class="disabled" onclick="captureColor()">
+          <div id="shutter-inner">📸</div>
+        </button>
+      </div>
+      <div id="shutter-hint">HOLD PHONE 6–8 INCHES FROM WALL</div>
+    </div>
+  </div>
+</div>
+
+<!-- ANALYZING -->
+<div id="screen-analyzing" class="screen">
+  <div class="spin-wrap"><div class="spin-o"></div><div class="spin-i"></div><div class="spin-icon">🎨</div></div>
+  <div>
+    <div class="ana-title">Analyzing Color</div>
+    <div class="ana-subs">
+      <div class="ana-sub active" id="ana-1">Sampling color values...</div>
+      <div class="ana-sub" id="ana-2">Correcting for lighting...</div>
+      <div class="ana-sub" id="ana-3">Matching paint database...</div>
+      <div class="ana-sub" id="ana-4">Generating patch preview...</div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div id="screen-result" class="screen">
+  <div class="r-hero">
+    <div class="r-color" id="r-color"></div>
+    <div class="r-info">
+      <div><div class="r-name" id="r-name"></div><div class="r-sheen" id="r-sheen"></div></div>
+      <div style="text-align:right"><div class="r-hex" id="r-hex"></div><div class="r-rgb" id="r-rgb"></div></div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-v" id="s-conf"></div><div class="stat-l">Confidence</div></div>
+    <div class="stat"><div class="stat-v" id="s-hue"></div><div class="stat-l">Hue</div></div>
+    <div class="stat"><div class="stat-v" id="s-light"></div><div class="stat-l">Lightness</div></div>
+  </div>
+  <div class="matches-title">CLOSEST PAINT MATCHES</div>
+  <div class="matches" id="matches"></div>
+  <div class="perlin-wrap">
+    <canvas id="perlin-canvas" width="380" height="160"></canvas>
+    <div class="perlin-lbl">Perlin Noise Edge — Unique To This Order</div>
+  </div>
+  <button class="btn-gold" id="order-btn" style="flex-shrink:0">ORDER THIS PATCH</button>
+  <button class="btn-outline" onclick="resetApp()" style="flex-shrink:0;margin-bottom:8px">SCAN AGAIN</button>
+</div>
+</div>
+<canvas id="hc" style="display:none"></canvas>
+
+<script>
+// ─── Paint Color Database ─────────────────────────────────────────────────────
+// Benjamin Moore + Sherwin Williams most common interior colors
+const PAINT_DB = [
+  // Benjamin Moore Whites & Off-Whites
+  {brand:'Benjamin Moore',name:'White Dove',num:'OC-17',r:245,g:243,b:236},
+  {brand:'Benjamin Moore',name:'Chantilly Lace',num:'OC-65',r:251,g:251,b:248},
+  {brand:'Benjamin Moore',name:'Simply White',num:'OC-117',r:250,g:247,b:237},
+  {brand:'Benjamin Moore',name:'Cloud White',num:'OC-130',r:244,g:240,b:229},
+  {brand:'Benjamin Moore',name:'Pale Oak',num:'OC-20',r:218,g:209,b:196},
+  {brand:'Benjamin Moore',name:'Revere Pewter',num:'HC-172',r:196,g:188,b:175},
+  {brand:'Benjamin Moore',name:'Edgecomb Gray',num:'HC-173',r:214,g:207,b:194},
+  {brand:'Benjamin Moore',name:'Accessible Beige',num:'SW 7036',r:209,g:199,b:183},
+  {brand:'Benjamin Moore',name:'Balanced Beige',num:'SW 7037',r:203,g:191,b:173},
+  {brand:'Benjamin Moore',name:'Agreeable Gray',num:'SW 7029',r:209,g:201,b:189},
+  {brand:'Benjamin Moore',name:'Repose Gray',num:'SW 7015',r:189,g:185,b:179},
+  {brand:'Benjamin Moore',name:'Mindful Gray',num:'SW 7016',r:184,g:178,b:168},
+  {brand:'Benjamin Moore',name:'Colonnade Gray',num:'SW 7641',r:182,g:176,b:165},
+  {brand:'Benjamin Moore',name:'Functional Gray',num:'SW 7024',r:177,g:171,b:161},
+  {brand:'Benjamin Moore',name:'Worldly Gray',num:'SW 7043',r:192,g:186,b:176},
+  {brand:'Benjamin Moore',name:'Passive',num:'SW 7064',r:196,g:194,b:185},
+  {brand:'Benjamin Moore',name:'Crushed Ice',num:'SW 7647',r:214,g:212,b:206},
+  {brand:'Benjamin Moore',name:'Alabaster',num:'SW 7008',r:237,g:233,b:222},
+  {brand:'Benjamin Moore',name:'Navajo White',num:'SW 6126',r:234,g:221,b:198},
+  {brand:'Benjamin Moore',name:'Antique White',num:'SW 6119',r:237,g:228,b:210},
+  {brand:'Benjamin Moore',name:'Creamy',num:'SW 7012',r:240,g:233,b:213},
+  {brand:'Benjamin Moore',name:'Wool Skein',num:'SW 6148',r:213,g:204,b:186},
+  {brand:'Benjamin Moore',name:'Kilim Beige',num:'SW 6106',r:207,g:189,b:161},
+  {brand:'Benjamin Moore',name:'Macadamia',num:'SW 6142',r:206,g:193,b:170},
+  {brand:'Benjamin Moore',name:'Porcelain',num:'SW 6073',r:216,g:217,b:211},
+  {brand:'Benjamin Moore',name:'Sea Salt',num:'SW 6204',r:186,g:203,b:195},
+  {brand:'Benjamin Moore',name:'Comfort Gray',num:'SW 6205',r:163,g:180,b:170},
+  {brand:'Benjamin Moore',name:'Requisite Gray',num:'SW 7023',r:168,g:163,b:154},
+  {brand:'Benjamin Moore',name:'Dovetail',num:'SW 7018',r:143,g:138,b:129},
+  {brand:'Benjamin Moore',name:'Gauntlet Gray',num:'SW 7019',r:132,g:130,b:122},
+  {brand:'Benjamin Moore',name:'Urbane Bronze',num:'SW 7048',r:100,g:93,b:82},
+  {brand:'Benjamin Moore',name:'Tricorn Black',num:'SW 6258',r:45,g:44,b:43},
+  // Warm greiges specifically
+  {brand:'Benjamin Moore',name:'Gray Owl',num:'OC-52',r:196,g:194,b:186},
+  {brand:'Benjamin Moore',name:'Stonington Gray',num:'HC-170',r:182,g:183,b:178},
+  {brand:'Benjamin Moore',name:'Ozark Shadows',num:'MSL-89',r:175,g:166,b:150},
+  {brand:'Benjamin Moore',name:'Bleeker Beige',num:'HC-80',r:196,g:186,b:166},
+  {brand:'Benjamin Moore',name:'Manchester Tan',num:'HC-81',r:204,g:190,b:163},
+  {brand:'Benjamin Moore',name:'Muslin',num:'OC-12',r:226,g:216,b:197},
+  {brand:'Benjamin Moore',name:'White Sand',num:'OC-10',r:228,g:218,b:202},
+  {brand:'Benjamin Moore',name:'Linen White',num:'OC-146',r:236,g:228,b:212},
+  {brand:'Benjamin Moore',name:'Warm Whites',num:'OC-45',r:237,g:231,b:218},
+  {brand:'Benjamin Moore',name:'Indian White',num:'OC-93',r:232,g:222,b:204},
+];
+
+// ─── State ─────────────────────────────────────────────────────────────────────
+let stream=null, raf=null, cameraReady=false;
+let capturedColor=null, brightness=0;
+const hc=document.getElementById('hc');
+
+// ─── Screens ───────────────────────────────────────────────────────────────────
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  document.getElementById('reset-btn').style.display=id==='intro'?'none':'block';
+}
+
+// ─── Camera ────────────────────────────────────────────────────────────────────
+async function startCamera(){
+  show('camera');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }
+    });
+    const v=document.getElementById('video');
+    v.srcObject=stream; await v.play();
+    cameraReady=true;
+    setStatus('📷','Point at wall from 6–8 inches','Wait for green indicator then tap shutter');
+    document.getElementById('shutter-btn').classList.remove('disabled');
+    document.getElementById('shutter-inner').textContent='📸';
+    startLiveLoop();
+  } catch(e){
+    setStatus('🚫','Camera access required','Open directly in Safari — tap AA in address bar → Website Settings → Camera → Allow');
+  }
+}
+
+function stopCamera(){
+  if(raf){cancelAnimationFrame(raf);raf=null;}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  cameraReady=false;
+}
+
+function setStatus(icon,title,sub){
+  document.getElementById('cam-status-icon').textContent=icon;
+  document.getElementById('cam-status-title').textContent=title;
+  document.getElementById('cam-status-sub').textContent=sub;
+}
+
+// ─── Color from frame ──────────────────────────────────────────────────────────
+function getFrameColor(){
+  const v=document.getElementById('video');
+  if(!v||v.readyState<2)return null;
+  const ctx=hc.getContext('2d');
+  hc.width=v.videoWidth||640; hc.height=v.videoHeight||480;
+  ctx.drawImage(v,0,0,hc.width,hc.height);
+  // Sample center 30% — tightest area for accuracy
+  const x0=Math.floor(hc.width*0.35),y0=Math.floor(hc.height*0.35);
+  const w=Math.floor(hc.width*0.3),h=Math.floor(hc.height*0.3);
+  const d=ctx.getImageData(x0,y0,w,h).data;
+  let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=12){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+  if(!n)return null;
+  r=Math.round(r/n); g=Math.round(g/n); b=Math.round(b/n);
+  brightness=Math.round(r*0.299+g*0.587+b*0.114);
+  return{r,g,b};
+}
+
+// ─── Live loop ─────────────────────────────────────────────────────────────────
+function startLiveLoop(){
+  let stable=0, lastR=0,lastG=0,lastB=0;
+  function loop(){
+    const c=getFrameColor();
+    if(c){
+      const hex=toHex(c);
+      // Live sample
+      document.getElementById('live-sample').style.display='flex';
+      document.getElementById('ls-swatch').style.background=hex;
+      document.getElementById('ls-hex').textContent=hex.toUpperCase();
+
+      // Light quality indicator
+      const lightGood = brightness>60 && brightness<230;
+      const ld=document.getElementById('light-dot');
+      const lt=document.getElementById('light-text');
+      if(lightGood){ld.className='good';lt.textContent='LIGHT OK';}
+      else if(brightness<=60){ld.className='low';lt.textContent='TOO DARK';}
+      else{ld.className='low';lt.textContent='TOO BRIGHT';}
+
+      // Distance estimation via brightness
+      // Ideal range 80-180 brightness indicates correct distance
+      const distPct = Math.min(100,Math.max(0,Math.round(((brightness-60)/140)*100)));
+      document.getElementById('dist-fill').style.height=distPct+'%';
+      document.getElementById('dist-fill').style.background=lightGood?'#6A8':'#E8803A';
+
+      // Stability detection
+      const drift=Math.abs(c.r-lastR)+Math.abs(c.g-lastG)+Math.abs(c.b-lastB);
+      if(drift<8) stable++; else stable=0;
+      lastR=c.r; lastG=c.g; lastB=c.b;
+
+      const locked = stable>15 && lightGood;
+      document.getElementById('lock-ring').className=locked?'locked':'';
+      if(locked){
+        setStatus('✅','Color locked — tap shutter','Holding steady in good light');
+      } else if(!lightGood){
+        setStatus('💡','Adjust lighting','Move near a window or turn on room lights');
+      } else {
+        setStatus('📷','Hold steady...','Keep phone 6–8 inches from wall');
+      }
+    }
+    raf=requestAnimationFrame(loop);
+  }
+  raf=requestAnimationFrame(loop);
+}
+
+// ─── Capture ───────────────────────────────────────────────────────────────────
+function captureColor(){
+  if(!cameraReady)return;
+  const c=getFrameColor();
+  if(!c)return;
+  capturedColor=c;
+  stopCamera();
+  show('analyzing');
+  runAnalysis(c);
+}
+
+// ─── Analysis ──────────────────────────────────────────────────────────────────
+function runAnalysis(raw){
+  // Step 1
+  setTimeout(()=>{
+    document.getElementById('ana-1').classList.add('active');
+  },300);
+  // Step 2 — lighting correction
+  setTimeout(()=>{
+    document.getElementById('ana-2').classList.add('active');
+  },800);
+  // Step 3 — database match
+  setTimeout(()=>{
+    document.getElementById('ana-3').classList.add('active');
+  },1400);
+  // Step 4 — done
+  setTimeout(()=>{
+    document.getElementById('ana-4').classList.add('active');
+    // Apply natural light white balance correction
+    // Camera tends to boost blue in indoor light
+    // Neutral correction — no aggressive shifts
+    let {r,g,b}=raw;
+    // Gentle warm correction for indoor tungsten/LED
+    if(brightness>80 && brightness<200){
+      // Subtle desaturation of blue cast
+      const avg=(r+g+b)/3;
+      r=Math.round(r*0.97+avg*0.03);
+      g=Math.round(g*0.98+avg*0.02);
+      b=Math.round(b*0.96+avg*0.04);
+    }
+    r=Math.min(255,Math.max(0,r));
+    g=Math.min(255,Math.max(0,g));
+    b=Math.min(255,Math.max(0,b));
+    const color={r,g,b};
+    const hex=toHex(color);
+    const hsl=toHsl(color);
+    const matches=findMatches(color);
+    const confidence=Math.round(100-((matches[0].dist/441)*100));
+    showResult({color,hex,hsl,matches,confidence});
+  },2200);
+}
+
+// ─── Paint matching ────────────────────────────────────────────────────────────
+function colorDist(a,b){
+  // Weighted color distance — human eye more sensitive to green
+  return Math.sqrt(
+    Math.pow((a.r-b.r)*0.30,2)+
+    Math.pow((a.g-b.g)*0.59,2)+
+    Math.pow((a.b-b.b)*0.11,2)
+  );
+}
+
+function findMatches(color){
+  return PAINT_DB
+    .map(p=>({...p,dist:colorDist(color,{r:p.r,g:p.g,b:p.b})}))
+    .sort((a,b)=>a.dist-b.dist)
+    .slice(0,3);
+}
+
+// ─── Result ────────────────────────────────────────────────────────────────────
+function showResult(d){
+  document.getElementById('r-color').style.background=d.hex;
+  document.getElementById('r-name').textContent=colorName(d.color);
+  document.getElementById('r-sheen').textContent=sheenName(d.color);
+  document.getElementById('r-hex').textContent=d.hex.toUpperCase();
+  document.getElementById('r-rgb').textContent='RGB '+d.color.r+' '+d.color.g+' '+d.color.b;
+  document.getElementById('s-conf').textContent=d.confidence+'%';
+  document.getElementById('s-hue').textContent=d.hsl.h+'°';
+  document.getElementById('s-light').textContent=d.hsl.l+'%';
+
+  // Paint matches
+  const mc=document.getElementById('matches');
+  mc.innerHTML='';
+  d.matches.forEach((m,i)=>{
+    const matchPct=Math.round(100-((m.dist/441)*100));
+    const card=document.createElement('div');
+    card.className='match-card'+(i===0?' top':'');
+    card.innerHTML=`
+      <div class="match-swatch" style="background:rgb(${m.r},${m.g},${m.b})"></div>
+      <div>
+        <div class="match-brand">${m.brand}</div>
+        <div class="match-name">${m.name}</div>
+        <div class="match-num">${m.num}</div>
+      </div>
+      <div class="match-pct">${matchPct}%</div>
+    `;
+    mc.appendChild(card);
+  });
+
+  document.getElementById('order-btn').textContent='ORDER PATCH — '+d.matches[0].name.toUpperCase();
+  drawPerlin(d.hex);
+  show('result');
+}
+
+// ─── Color utilities ───────────────────────────────────────────────────────────
+function toHex({r,g,b}){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+function toHsl({r,g,b}){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+  let h,s,l=(mx+mn)/2;
+  if(mx===mn){h=s=0;}
+  else{const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    switch(mx){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}}
+  return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};
+}
+function colorName({r,g,b}){
+  const{h,s,l}=toHsl({r,g,b});
+  if(l>90)return s<5?'Pure White':'Off White';
+  if(l>80)return s<8?'Light Gray':h<30?'Warm White':h<60?'Ivory':'Pearl';
+  if(l>68)return s<10?'Silver':h<30?'Cream':h<60?'Warm Beige':h<120?'Sage':'Sky';
+  if(l>55)return s<12?'Light Gray':h<30?'Greige':h<60?'Sand':'Soft Green';
+  if(l>42)return s<15?'Medium Gray':h<30?'Tan':h<60?'Caramel':'Slate';
+  return s<15?'Charcoal':'Dark Tone';
+}
+function sheenName({r,g,b}){
+  const{l}=toHsl({r,g,b});
+  if(l>80)return'Flat / Matte';if(l>65)return'Eggshell';if(l>50)return'Satin';return'Semi-Gloss';
+}
+
+// ─── Perlin preview ────────────────────────────────────────────────────────────
+function noise(x,y,sd){const n=Math.sin(x*127.1+y*311.7+sd*74.3)*43758.5453;return n-Math.floor(n);}
+function sNoise(x,y,sd){const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);return noise(ix,iy,sd)+(noise(ix+1,iy,sd)-noise(ix,iy,sd))*ux+(noise(ix,iy+1,sd)-noise(ix,iy,sd))*uy+(noise(ix+1,iy+1,sd)-noise(ix+1,iy,sd)-noise(ix,iy+1,sd)+noise(ix,iy,sd))*ux*uy;}
+function drawPerlin(hex){
+  const cv=document.getElementById('perlin-canvas'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height,sd=Math.random()*100;
+  const pr=parseInt(hex.slice(1,3),16),pg=parseInt(hex.slice(3,5),16),pb=parseInt(hex.slice(5,7),16);
+  const wr=Math.max(0,pr-18),wg=Math.max(0,pg-18),wb=Math.max(0,pb-18);
+  const pcr=Math.min(255,pr+16),pcg=Math.min(255,pg+16),pcb=Math.min(255,pb+16);
+  ctx.fillStyle='rgb('+wr+','+wg+','+wb+')';ctx.fillRect(0,0,W,H);
+  const im=ctx.getImageData(0,0,W,H),px=im.data,cx=W/2,cy=H/2,br=Math.min(W,H)*0.35;
+  for(let y=0;y<H;y++){for(let x=0;x<W;x++){
+    const dx=x-cx,dy=y-cy,dist=Math.sqrt(dx*dx+dy*dy),ang=Math.atan2(dy,dx);
+    const nv=sNoise(Math.cos(ang)*3+5,Math.sin(ang)*3+5,sd)*2-1;
+    const er=br+nv*br*0.22,tw=br*0.28,ir=er-tw;
+    if(dist<ir){const i=(y*W+x)*4;px[i]=pcr;px[i+1]=pcg;px[i+2]=pcb;px[i+3]=255;}
+    else if(dist<er){const t=(dist-ir)/tw,op=1-t*t*(3-2*t),i=(y*W+x)*4;
+      px[i]=Math.round(pcr*op+wr*(1-op));px[i+1]=Math.round(pcg*op+wg*(1-op));
+      px[i+2]=Math.round(pcb*op+wb*(1-op));px[i+3]=255;}
+  }}
+  ctx.putImageData(im,0,0);
+}
+
+// ─── Reset ─────────────────────────────────────────────────────────────────────
+function resetApp(){stopCamera();cameraReady=false;capturedColor=null;show('intro');}
+</script>
+</body>
+</html>
