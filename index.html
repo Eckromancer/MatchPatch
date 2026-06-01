@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MatchPatch</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --gold:#C8A96E; --gold2:#E8C98E;
+  --bg:#080808; --bg2:#111; --bg3:#161616;
+  --border:#1E1E1E; --text:#F0EDE6; --muted:#8A8070;
+}
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:Georgia,serif; overflow:hidden; }
+#app { height:100vh; width:100%; max-width:430px; margin:0 auto; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+#header { padding:14px 20px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; background:var(--bg); z-index:20; }
+#logo { font-size:21px; font-weight:700; letter-spacing:-0.5px; }
+#logo span { color:var(--gold); }
+#logo-sub { font-size:8px; letter-spacing:3px; color:#3A3A3A; text-transform:uppercase; margin-top:1px; }
+#reset-btn { display:none; background:transparent; border:1px solid #2A2A2A; border-radius:6px; color:#555; font-size:10px; padding:5px 11px; cursor:pointer; font-family:Georgia,serif; letter-spacing:1px; }
+.screen { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.screen.active { display:flex; }
+#screen-intro { padding:24px 20px 20px; gap:18px; overflow-y:auto; }
+.hero { display:flex; flex-direction:column; align-items:center; gap:14px; padding:16px 0 8px; }
+.hero-ring { width:120px; height:120px; border-radius:50%; background:radial-gradient(circle,#1A1710,#0A0A08); border:1px solid #2A2A1A; display:flex; align-items:center; justify-content:center; font-size:48px; position:relative; }
+.hero-badge { position:absolute; bottom:6px; right:6px; width:30px; height:30px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-size:15px; }
+.hero-title { font-size:23px; font-weight:400; text-align:center; letter-spacing:-0.3px; }
+.hero-sub { font-size:13px; color:var(--muted); text-align:center; line-height:1.7; max-width:270px; }
+.steps { display:flex; flex-direction:column; gap:8px; }
+.step { display:flex; align-items:flex-start; gap:13px; padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; }
+.step-n { width:22px; height:22px; border-radius:50%; flex-shrink:0; margin-top:1px; background:#1A1710; border:1px solid var(--gold); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--gold); font-weight:600; }
+.step-t { font-size:12px; color:#C0B89A; line-height:1.5; }
+.btn-gold { width:100%; padding:17px; background:var(--gold); border:none; border-radius:12px; color:#080808; font-size:14px; font-weight:700; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; flex-shrink:0; }
+.btn-outline { width:100%; padding:13px; background:transparent; border:1px solid #2A2A2A; border-radius:10px; color:#666; font-size:11px; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; flex-shrink:0; }
+#screen-scan { position:relative; background:#000; }
+#video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+#scan-ui { position:absolute; inset:0; display:flex; flex-direction:column; pointer-events:none; z-index:5; }
+#status-bar { margin:10px 12px 0; padding:11px 14px; background:rgba(8,8,8,0.82); border:1px solid rgba(200,169,110,0.2); border-radius:10px; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); text-align:center; pointer-events:none; }
+#status-icon { font-size:18px; margin-bottom:3px; }
+#status-title { font-size:14px; color:var(--text); font-weight:400; }
+#status-sub { font-size:11px; color:var(--muted); margin-top:2px; line-height:1.4; }
+#viewfinder { flex:1; display:flex; align-items:center; justify-content:center; position:relative; }
+#vf-ring { width:180px; height:180px; border-radius:50%; border:2px solid rgba(200,169,110,0.4); position:relative; transition:border-color 0.3s ease, box-shadow 0.3s ease; }
+#vf-ring.active { border-color:var(--gold); box-shadow:0 0 0 4px rgba(200,169,110,0.12), 0 0 30px rgba(200,169,110,0.15); }
+#vf-ring.good { border-color:#6A8; box-shadow:0 0 0 4px rgba(100,200,130,0.12), 0 0 30px rgba(100,200,130,0.15); }
+.vf-corner { position:absolute; width:16px; height:16px; }
+.vf-corner.tl { top:-2px; left:-2px; border-top:3px solid var(--gold); border-left:3px solid var(--gold); border-radius:4px 0 0 0; }
+.vf-corner.tr { top:-2px; right:-2px; border-top:3px solid var(--gold); border-right:3px solid var(--gold); border-radius:0 4px 0 0; }
+.vf-corner.bl { bottom:-2px; left:-2px; border-bottom:3px solid var(--gold); border-left:3px solid var(--gold); border-radius:0 0 0 4px; }
+.vf-corner.br { bottom:-2px; right:-2px; border-bottom:3px solid var(--gold); border-right:3px solid var(--gold); border-radius:0 0 4px 0; }
+#vf-pulse { position:absolute; inset:0; border-radius:50%; background:rgba(200,169,110,0.06); animation:pulse 2s ease-in-out infinite; opacity:0; }
+#vf-pulse.active { opacity:1; }
+@keyframes pulse { 0%,100%{transform:scale(0.95);opacity:0.3} 50%{transform:scale(1.05);opacity:0.7} }
+#live-chip { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.78); border-radius:8px; padding:7px 10px; display:none; align-items:center; gap:8px; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+#live-swatch { width:20px; height:20px; border-radius:4px; border:1px solid rgba(255,255,255,0.12); }
+#live-label { font-size:8px; color:var(--gold); letter-spacing:1px; }
+#live-hex { font-size:10px; color:var(--text); font-family:monospace; }
+#flash-chip { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.75); border-radius:6px; padding:5px 10px; display:flex; align-items:center; gap:5px; font-size:9px; letter-spacing:1px; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+#flash-dot { width:6px; height:6px; border-radius:50%; background:#666; transition:background 0.3s; }
+#flash-dot.on { background:#FFD700; box-shadow:0 0 6px #FFD700; }
+#flash-text { color:#888; transition:color 0.3s; }
+#flash-text.on { color:var(--gold); }
+#brightness-meter { position:absolute; left:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; gap:3px; }
+#brightness-bar { width:4px; height:80px; background:#1A1A1A; border-radius:2px; overflow:hidden; display:flex; flex-direction:column-reverse; }
+#brightness-fill { width:100%; background:var(--gold); border-radius:2px; transition:height 0.15s ease; height:0%; }
+#brightness-label { font-size:7px; color:#444; letter-spacing:1px; writing-mode:vertical-rl; margin-top:4px; }
+#sample-strip { position:absolute; bottom:130px; left:12px; right:12px; display:flex; gap:3px; flex-wrap:wrap; justify-content:center; min-height:14px; }
+.sdot { width:10px; height:10px; border-radius:2px; border:1px solid rgba(255,255,255,0.08); flex-shrink:0; }
+#progress-wrap { position:absolute; bottom:115px; left:50%; transform:translateX(-50%); opacity:0; transition:opacity 0.3s; }
+#progress-wrap.visible { opacity:1; }
+#progress-svg { transform:rotate(-90deg); }
+#progress-circle { fill:none; stroke:var(--gold); stroke-width:3; stroke-linecap:round; stroke-dasharray:157; stroke-dashoffset:157; transition:stroke-dashoffset 0.1s ease; }
+#progress-count { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--gold); font-weight:600; }
+#scan-bottom { position:absolute; bottom:0; left:0; right:0; padding:12px 14px 28px; background:linear-gradient(transparent, rgba(8,8,8,0.95) 40%); pointer-events:auto; }
+#scan-btn { width:100%; padding:17px; background:var(--gold); border:none; border-radius:12px; color:#080808; font-size:14px; font-weight:700; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; transition:all 0.2s ease; -webkit-user-select:none; user-select:none; }
+#scan-btn.scanning { background:#1A1A1A; color:var(--gold); border:1px solid var(--gold); }
+#scan-btn.disabled { background:#1A1A1A; color:#444; cursor:not-allowed; }
+#proximity-warn { display:none; margin:0 12px 6px; padding:9px 12px; background:rgba(180,80,40,0.15); border:1px solid rgba(180,80,40,0.3); border-radius:8px; font-size:11px; color:#E8A080; text-align:center; pointer-events:none; }
+#screen-analyzing { align-items:center; justify-content:center; gap:20px; padding:40px; }
+.spin-wrap { position:relative; width:88px; height:88px; }
+.spin-o { position:absolute; inset:0; border:2px solid #1A1A1A; border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; }
+.spin-i { position:absolute; inset:13px; border:1px solid #1A1A1A; border-bottom-color:#8A7040; border-radius:50%; animation:spin 1.3s linear infinite reverse; }
+.spin-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:24px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.ana-title { font-size:18px; text-align:center; }
+.ana-sub { font-size:11px; color:var(--muted); text-align:center; margin-top:5px; line-height:1.6; }
+#screen-result { padding:14px; gap:11px; overflow-y:auto; }
+.r-hero { border-radius:14px; overflow:hidden; border:1px solid #2A2A1A; flex-shrink:0; }
+.r-color { height:80px; }
+.r-info { padding:12px 14px; background:var(--bg2); display:flex; justify-content:space-between; align-items:center; }
+.r-name { font-size:16px; }
+.r-sheen { font-size:11px; color:var(--muted); margin-top:2px; }
+.r-hex { font-size:13px; color:var(--gold); font-family:monospace; }
+.r-rgb { font-size:9px; color:#555; margin-top:2px; font-family:monospace; }
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; flex-shrink:0; }
+.stat { padding:10px 8px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; text-align:center; }
+.stat-v { font-size:16px; color:var(--gold); font-weight:600; }
+.stat-l { font-size:8px; color:#555; letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.perlin-wrap { border-radius:12px; overflow:hidden; border:1px solid var(--border); flex-shrink:0; }
+#perlin-canvas { width:100%; display:block; }
+.perlin-lbl { padding:7px; background:var(--bg2); font-size:8px; color:#444; letter-spacing:2px; text-align:center; text-transform:uppercase; }
+.accuracy-badge { padding:10px 12px; background:#0A120A; border:1px solid #1A2A1A; border-radius:8px; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.acc-icon { font-size:14px; }
+.acc-text { font-size:11px; color:#6A8A6A; }
+.acc-sub { font-size:9px; color:#3A5A3A; margin-top:1px; }
+.acc-pct { margin-left:auto; font-size:16px; color:var(--gold); font-weight:600; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="header">
+  <div><div id="logo">Match<span>Patch</span></div><div id="logo-sub">Wall Scanner</div></div>
+  <button id="reset-btn" onclick="resetApp()">RESET</button>
+</div>
+<div id="screen-intro" class="screen active">
+  <div class="hero">
+    <div class="hero-ring">📱<div class="hero-badge">🔦</div></div>
+    <div class="hero-title">Scan Your Wall</div>
+    <div class="hero-sub">Press your phone flat against the wall. Your flashlight does the rest.</div>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="step-n">1</div><div class="step-t">Tap <strong style="color:var(--gold)">Scan My Wall</strong> and allow camera access</div></div>
+    <div class="step"><div class="step-n">2</div><div class="step-t">Press your phone <strong style="color:var(--gold)">flat against the wall</strong> — flashlight activates automatically</div></div>
+    <div class="step"><div class="step-n">3</div><div class="step-t"><strong style="color:var(--gold)">Hold the button and drag</strong> slowly across the damaged area</div></div>
+    <div class="step"><div class="step-n">4</div><div class="step-t">Color matched — order your custom patch instantly</div></div>
+  </div>
+  <button class="btn-gold" onclick="startScan()">SCAN MY WALL</button>
+</div>
+<div id="screen-scan" class="screen">
+  <video id="video" playsinline autoplay muted></video>
+  <div id="scan-ui">
+    <div id="status-bar">
+      <div id="status-icon">📱</div>
+      <div id="status-title">Starting camera...</div>
+      <div id="status-sub">Allow camera access when prompted</div>
+    </div>
+    <div id="viewfinder">
+      <div id="live-chip"><div id="live-swatch"></div><div><div id="live-label">LIVE</div><div id="live-hex"></div></div></div>
+      <div id="flash-chip"><div id="flash-dot"></div><div id="flash-text">FLASH</div></div>
+      <div id="brightness-meter"><div id="brightness-bar"><div id="brightness-fill"></div></div><div id="brightness-label">LUX</div></div>
+      <div id="vf-ring">
+        <div class="vf-corner tl"></div><div class="vf-corner tr"></div>
+        <div class="vf-corner bl"></div><div class="vf-corner br"></div>
+        <div id="vf-pulse"></div>
+      </div>
+      <div id="progress-wrap">
+        <svg id="progress-svg" width="54" height="54" viewBox="0 0 54 54">
+          <circle cx="27" cy="27" r="25" fill="none" stroke="#1A1A1A" stroke-width="3"/>
+          <circle id="progress-circle" cx="27" cy="27" r="25"/>
+        </svg>
+        <div id="progress-count">0</div>
+      </div>
+    </div>
+    <div id="sample-strip"></div>
+    <div id="proximity-warn">⚠️ Press phone closer to wall — not enough light detected</div>
+  </div>
+  <div id="scan-bottom">
+    <button id="scan-btn" class="disabled" ontouchstart="onScanStart(event)" ontouchend="onScanEnd(event)" onmousedown="onScanStart(event)" onmouseup="onScanEnd(event)">WAITING FOR CAMERA...</button>
+  </div>
+</div>
+<div id="screen-analyzing" class="screen">
+  <div class="spin-wrap"><div class="spin-o"></div><div class="spin-i"></div><div class="spin-icon">🎨</div></div>
+  <div><div class="ana-title">Analyzing Color</div><div class="ana-sub">Calibrating against flashlight spectrum<br>Generating Perlin noise edge pattern<br>Calculating match confidence</div></div>
+</div>
+<div id="screen-result" class="screen">
+  <div class="r-hero"><div class="r-color" id="r-color"></div>
+    <div class="r-info">
+      <div><div class="r-name" id="r-name"></div><div class="r-sheen" id="r-sheen"></div></div>
+      <div style="text-align:right"><div class="r-hex" id="r-hex"></div><div class="r-rgb" id="r-rgb"></div></div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-v" id="s-samples"></div><div class="stat-l">Samples</div></div>
+    <div class="stat"><div class="stat-v" id="s-hue"></div><div class="stat-l">Hue</div></div>
+    <div class="stat"><div class="stat-v" id="s-light"></div><div class="stat-l">Lightness</div></div>
+  </div>
+  <div class="accuracy-badge">
+    <div class="acc-icon">✓</div>
+    <div><div class="acc-text">Flashlight calibrated scan</div><div class="acc-sub">LED spectrum correction applied</div></div>
+    <div class="acc-pct" id="acc-pct"></div>
+  </div>
+  <div class="perlin-wrap">
+    <canvas id="perlin-canvas" width="380" height="180"></canvas>
+    <div class="perlin-lbl">Perlin Noise Edge — Unique To This Order</div>
+  </div>
+  <button class="btn-gold" id="order-btn" style="flex-shrink:0">ORDER THIS PATCH</button>
+  <button class="btn-outline" onclick="resetApp()" style="flex-shrink:0;margin-bottom:8px">SCAN AGAIN</button>
+</div>
+</div>
+<canvas id="hc" style="display:none"></canvas>
+<script>
+let stream=null,raf=null,samples=[],scanning=false,cameraReady=false;
+const hc=document.getElementById('hc');
+const FLASH_CORRECT={r:1.0,g:0.97,b:0.94};
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');document.getElementById('reset-btn').style.display=id==='intro'?'none':'block';}
+async function startScan(){show('scan');try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});const v=document.getElementById('video');v.srcObject=stream;await v.play();cameraReady=true;onCameraReady();startLiveLoop();}catch(e){setStatus('📷','Camera access required','Open this page directly in Safari — not inside another app');}}
+function onCameraReady(){setStatus('📱','Press phone flat against wall','Hold SCAN button and drag slowly across the area');document.getElementById('scan-btn').className='';document.getElementById('scan-btn').textContent='HOLD TO SCAN WALL';document.getElementById('flash-dot').className='on';document.getElementById('flash-text').className='on';document.getElementById('flash-text').textContent='FLASH ON';enableTorch(true);}
+function stopCamera(){if(raf){cancelAnimationFrame(raf);raf=null;}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}cameraReady=false;}
+async function enableTorch(on){if(!stream)return;const t=stream.getVideoTracks()[0];if(!t)return;try{await t.applyConstraints({advanced:[{torch:on}]});}catch(e){}}
+function getColor(){const v=document.getElementById('video');if(!v||v.readyState<2)return null;const ctx=hc.getContext('2d');hc.width=v.videoWidth||640;hc.height=v.videoHeight||480;ctx.drawImage(v,0,0,hc.width,hc.height);const x0=Math.floor(hc.width*0.3),y0=Math.floor(hc.height*0.3),w=Math.floor(hc.width*0.4),h=Math.floor(hc.height*0.4);const d=ctx.getImageData(x0,y0,w,h).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=16){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}if(!n)return null;r=Math.round(r/n);g=Math.round(g/n);b=Math.round(b/n);return{r,g,b,brightness:Math.round(r*0.299+g*0.587+b*0.114)};}
+function applyFlashCorrection(c){return{r:Math.min(255,Math.round(c.r/FLASH_CORRECT.r)),g:Math.min(255,Math.round(c.g/FLASH_CORRECT.g)),b:Math.min(255,Math.round(c.b/FLASH_CORRECT.b))};}
+function toHex({r,g,b}){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+function toHsl({r,g,b}){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0;}else{const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}}return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};}
+function colorName({r,g,b}){const{h,s,l}=toHsl({r,g,b});if(l>90)return s<5?'Pure White':'Off White';if(l>78)return s<8?'Light Gray':h<30?'Warm White':h<60?'Ivory':'Pearl';if(l>64)return s<12?'Silver Gray':h<30?'Cream':h<60?'Wheat':h<120?'Sage':h<200?'Sky Blue':'Lavender';if(l>50)return s<18?'Medium Gray':h<30?'Tan':h<60?'Sand':h<120?'Olive':h<200?'Steel Blue':'Dusty Mauve';if(l>36)return s<20?'Charcoal':h<30?'Caramel':h<60?'Amber':h<120?'Forest':'Navy';return s<15?'Dark Gray':'Deep Tone';}
+function sheenName({r,g,b}){const{l}=toHsl({r,g,b});if(l>80)return'Flat / Matte';if(l>64)return'Eggshell';if(l>50)return'Satin';return'Semi-Gloss';}
+function setStatus(icon,title,sub){document.getElementById('status-icon').textContent=icon;document.getElementById('status-title').textContent=title;document.getElementById('status-sub').textContent=sub;}
+function startLiveLoop(){function loop(){const c=getColor();if(c){const hex=toHex(c);document.getElementById('live-chip').style.display='flex';document.getElementById('live-swatch').style.background=hex;document.getElementById('live-hex').textContent=hex.toUpperCase();const bPct=Math.round((c.brightness/255)*100);document.getElementById('brightness-fill').style.height=bPct+'%';const proxOk=c.brightness>60;document.getElementById('proximity-warn').style.display=(scanning&&!proxOk)?'block':'none';if(scanning&&proxOk){samples.push(c);updateScanProgress();if(samples.length>=45){scanning=false;finishScan();return;}}}raf=requestAnimationFrame(loop);}raf=requestAnimationFrame(loop);}
+function onScanStart(e){e.preventDefault();if(!cameraReady)return;scanning=true;samples=[];document.getElementById('scan-btn').className='scanning';document.getElementById('scan-btn').textContent='SCANNING — DRAG SLOWLY →';document.getElementById('vf-ring').className='active';document.getElementById('vf-pulse').className='active';document.getElementById('progress-wrap').className='visible';document.getElementById('sample-strip').innerHTML='';setStatus('🔦','Dragging... keep moving','Slowly drag phone across the damaged area');}
+function onScanEnd(e){e.preventDefault();if(!scanning)return;scanning=false;document.getElementById('vf-ring').className='';document.getElementById('vf-pulse').className='';if(samples.length>=8){finishScan();}else{document.getElementById('scan-btn').className='';document.getElementById('scan-btn').textContent='HOLD TO SCAN WALL';document.getElementById('progress-wrap').className='';setStatus('📱','Not enough — try again','Press phone flat against wall and drag slower');}}
+function updateScanProgress(){const pct=Math.min(1,samples.length/45);document.getElementById('progress-circle').style.strokeDashoffset=157-(157*pct);document.getElementById('progress-count').textContent=samples.length;if(samples.length%2===0){const c=samples[samples.length-1];const d=document.createElement('div');d.className='sdot';d.style.background=toHex(c);document.getElementById('sample-strip').appendChild(d);}if(samples.length>=20){document.getElementById('vf-ring').className='good';setStatus('✅','Great scan — keep dragging',samples.length+' samples captured');}}
+function finishScan(){enableTorch(false);stopCamera();show('analyzing');setTimeout(()=>{let r=0,g=0,b=0;samples.forEach(s=>{r+=s.r;g+=s.g;b+=s.b;});r=Math.round(r/samples.length);g=Math.round(g/samples.length);b=Math.round(b/samples.length);const corrected=applyFlashCorrection({r,g,b});const hex=toHex(corrected);const hsl=toHsl(corrected);const variance=samples.reduce((acc,s)=>acc+Math.abs(s.r-r)+Math.abs(s.g-g)+Math.abs(s.b-b),0)/samples.length;const confidence=Math.max(72,Math.min(99,Math.round(99-(variance/3))));showResult({color:corrected,hex,hsl,name:colorName(corrected),sheen:sheenName(corrected),confidence,count:samples.length});},2000);}
+function showResult(d){document.getElementById('r-color').style.background=d.hex;document.getElementById('r-name').textContent=d.name;document.getElementById('r-sheen').textContent=d.sheen;document.getElementById('r-hex').textContent=d.hex.toUpperCase();document.getElementById('r-rgb').textContent='RGB '+d.color.r+' '+d.color.g+' '+d.color.b;document.getElementById('s-samples').textContent=d.count;document.getElementById('s-hue').textContent=d.hsl.h+'°';document.getElementById('s-light').textContent=d.hsl.l+'%';document.getElementById('acc-pct').textContent=d.confidence+'%';document.getElementById('order-btn').textContent='ORDER PATCH — '+d.name.toUpperCase();drawPerlin(d.hex);show('result');}
+function noise(x,y,sd){const n=Math.sin(x*127.1+y*311.7+sd*74.3)*43758.5453;return n-Math.floor(n);}
+function sNoise(x,y,sd){const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);return noise(ix,iy,sd)+(noise(ix+1,iy,sd)-noise(ix,iy,sd))*ux+(noise(ix,iy+1,sd)-noise(ix,iy,sd))*uy+(noise(ix+1,iy+1,sd)-noise(ix+1,iy,sd)-noise(ix,iy+1,sd)+noise(ix,iy,sd))*ux*uy;}
+function drawPerlin(hex){const cv=document.getElementById('perlin-canvas'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height,sd=Math.random()*100;const pr=parseInt(hex.slice(1,3),16),pg=parseInt(hex.slice(3,5),16),pb=parseInt(hex.slice(5,7),16);const wr=Math.max(0,pr-20),wg=Math.max(0,pg-20),wb=Math.max(0,pb-20),pcr=Math.min(255,pr+18),pcg=Math.min(255,pg+18),pcb=Math.min(255,pb+18);ctx.fillStyle='rgb('+wr+','+wg+','+wb+')';ctx.fillRect(0,0,W,H);const im=ctx.getImageData(0,0,W,H),px=im.data,cx=W/2,cy=H/2,br=Math.min(W,H)*0.33;for(let y=0;y<H;y++){for(let x=0;x<W;x++){const dx=x-cx,dy=y-cy,dist=Math.sqrt(dx*dx+dy*dy),ang=Math.atan2(dy,dx),nv=sNoise(Math.cos(ang)*3+5,Math.sin(ang)*3+5,sd)*2-1,er=br+nv*br*0.22,tw=br*0.28,ir=er-tw;if(dist<ir){const i=(y*W+x)*4;px[i]=pcr;px[i+1]=pcg;px[i+2]=pcb;px[i+3]=255;}else if(dist<er){const t=(dist-ir)/tw,op=1-t*t*(3-2*t),i=(y*W+x)*4;px[i]=Math.round(pcr*op+wr*(1-op));px[i+1]=Math.round(pcg*op+wg*(1-op));px[i+2]=Math.round(pcb*op+wb*(1-op));px[i+3]=255;}}}ctx.putImageData(im,0,0);}
+function resetApp(){enableTorch(false);stopCamera();samples=[];scanning=false;cameraReady=false;show('intro');}
+</script>
+</body>
+</html>
