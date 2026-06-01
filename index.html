@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MatchPatch</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root { --gold:#C8A96E; --bg:#080808; --bg2:#111; --border:#1E1E1E; --text:#F0EDE6; --muted:#8A8070; }
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:Georgia,serif; overflow:hidden; }
+#app { height:100vh; width:100%; max-width:430px; margin:0 auto; display:flex; flex-direction:column; overflow:hidden; }
+#header { padding:14px 20px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; background:var(--bg); z-index:20; }
+#logo { font-size:21px; font-weight:700; letter-spacing:-0.5px; }
+#logo span { color:var(--gold); }
+#logo-sub { font-size:8px; letter-spacing:3px; color:#3A3A3A; text-transform:uppercase; margin-top:1px; }
+#reset-btn { display:none; background:transparent; border:1px solid #2A2A2A; border-radius:6px; color:#555; font-size:10px; padding:5px 11px; cursor:pointer; font-family:Georgia,serif; letter-spacing:1px; }
+.screen { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.screen.active { display:flex; }
+
+/* INTRO */
+#screen-intro { padding:24px 20px 20px; gap:16px; overflow-y:auto; }
+.hero { display:flex; flex-direction:column; align-items:center; gap:12px; padding:12px 0; }
+.hero-ring { width:110px; height:110px; border-radius:50%; background:radial-gradient(circle,#1A1710,#0A0A08); border:1px solid #2A2A1A; display:flex; align-items:center; justify-content:center; font-size:44px; }
+.hero-title { font-size:22px; font-weight:400; text-align:center; }
+.hero-sub { font-size:13px; color:var(--muted); text-align:center; line-height:1.7; max-width:280px; }
+.tip-box { padding:12px 14px; background:#0F0F0A; border:1px solid #2A2A10; border-radius:10px; }
+.tip-title { font-size:10px; letter-spacing:2px; color:var(--gold); margin-bottom:8px; }
+.tip-item { display:flex; gap:10px; align-items:flex-start; margin-bottom:6px; font-size:12px; color:#C0B89A; line-height:1.5; }
+.tip-item:last-child { margin-bottom:0; }
+.tip-num { color:var(--gold); font-size:11px; flex-shrink:0; margin-top:1px; }
+.btn-gold { width:100%; padding:17px; background:var(--gold); border:none; border-radius:12px; color:#080808; font-size:14px; font-weight:700; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; flex-shrink:0; }
+.btn-outline { width:100%; padding:13px; background:transparent; border:1px solid #2A2A2A; border-radius:10px; color:#666; font-size:11px; letter-spacing:2px; cursor:pointer; font-family:Georgia,serif; flex-shrink:0; }
+
+/* CAMERA */
+#screen-camera { position:relative; background:#000; }
+#video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+#cam-ui { position:absolute; inset:0; display:flex; flex-direction:column; z-index:5; pointer-events:none; }
+#cam-status { margin:10px 12px 0; padding:10px 14px; background:rgba(8,8,8,0.88); border:1px solid rgba(200,169,110,0.25); border-radius:10px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); text-align:center; }
+#cam-status-icon { font-size:16px; margin-bottom:2px; }
+#cam-status-title { font-size:13px; color:var(--text); }
+#cam-status-sub { font-size:10px; color:var(--muted); margin-top:2px; line-height:1.4; }
+#viewfinder { flex:1; display:flex; align-items:center; justify-content:center; position:relative; width:100%; }
+
+/* Tap-to-focus dot */
+#focus-dot { position:absolute; width:70px; height:70px; border-radius:50%; border:2px solid var(--gold); pointer-events:none; transform:translate(-50%,-50%); transition:opacity 0.3s; opacity:0; }
+#focus-dot.show { opacity:1; animation:focusPop 0.4s ease; }
+@keyframes focusPop { 0%{transform:translate(-50%,-50%) scale(1.4);opacity:0} 60%{transform:translate(-50%,-50%) scale(0.9);opacity:1} 100%{transform:translate(-50%,-50%) scale(1);opacity:1} }
+
+/* Countdown ring */
+#countdown-wrap { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0; transition:opacity 0.3s; pointer-events:none; }
+#countdown-wrap.show { opacity:1; }
+#countdown-svg { transform:rotate(-90deg); }
+#countdown-circle { fill:none; stroke:var(--gold); stroke-width:4; stroke-linecap:round; stroke-dasharray:220; stroke-dashoffset:220; transition:stroke-dashoffset 0.1s linear; }
+#countdown-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--gold); font-weight:400; }
+
+/* Sample strip — shows multiple readings */
+#sample-strip { position:absolute; bottom:140px; left:50%; transform:translateX(-50%); display:flex; gap:4px; }
+.s-sample { width:24px; height:24px; border-radius:4px; border:2px solid rgba(255,255,255,0.1); opacity:0; transition:opacity 0.2s; }
+.s-sample.filled { opacity:1; }
+
+/* Live chip */
+#live-chip { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.82); border-radius:8px; padding:7px 10px; display:none; align-items:center; gap:8px; backdrop-filter:blur(4px); }
+#lc-swatch { width:22px; height:22px; border-radius:4px; border:1px solid rgba(255,255,255,0.15); }
+#lc-label { font-size:8px; color:var(--gold); letter-spacing:1px; }
+#lc-hex { font-size:10px; color:var(--text); font-family:monospace; }
+
+/* Light badge */
+#light-badge { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.78); border-radius:6px; padding:5px 9px; display:flex; align-items:center; gap:5px; font-size:9px; letter-spacing:1px; }
+#light-dot { width:6px; height:6px; border-radius:50%; background:#333; transition:all 0.3s; }
+#light-dot.good { background:#6A8; box-shadow:0 0 4px #6A8; }
+#light-dot.bad { background:#E8803A; box-shadow:0 0 4px #E8803A; }
+#light-text { color:#888; transition:color 0.3s; }
+#light-text.good { color:#6A8; }
+
+/* WB lock indicator */
+#wb-badge { position:absolute; bottom:145px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); border-radius:20px; padding:5px 14px; font-size:10px; color:#666; letter-spacing:2px; display:none; white-space:nowrap; }
+#wb-badge.locked { color:var(--gold); border:1px solid rgba(200,169,110,0.3); }
+
+/* Tap area */
+#tap-area { position:absolute; inset:0; cursor:crosshair; z-index:4; }
+
+/* Bottom */
+#cam-bottom { position:absolute; bottom:0; left:0; right:0; padding:10px 16px 26px; background:linear-gradient(transparent,rgba(8,8,8,0.96) 35%); pointer-events:auto; display:flex; flex-direction:column; align-items:center; gap:6px; z-index:6; }
+#shutter-btn { width:68px; height:68px; border-radius:50%; background:var(--gold); border:4px solid rgba(200,169,110,0.25); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; -webkit-user-select:none; user-select:none; }
+#shutter-btn:active { transform:scale(0.92); }
+#shutter-btn.disabled { background:#1E1E1E; border-color:#222; cursor:not-allowed; }
+#shutter-btn.counting { background:#1A1A1A; border-color:var(--gold); }
+#shutter-inner { width:54px; height:54px; border-radius:50%; background:#0A0A0A; display:flex; align-items:center; justify-content:center; font-size:20px; }
+#shutter-hint { font-size:10px; color:var(--muted); letter-spacing:1px; text-align:center; }
+
+/* ANALYZING */
+#screen-analyzing { align-items:center; justify-content:center; gap:20px; padding:40px; }
+.spin-wrap { position:relative; width:88px; height:88px; }
+.spin-o { position:absolute; inset:0; border:2px solid #1A1A1A; border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; }
+.spin-i { position:absolute; inset:13px; border:1px solid #1A1A1A; border-bottom-color:#8A7040; border-radius:50%; animation:spin 1.3s linear infinite reverse; }
+.spin-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:24px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.ana-title { font-size:18px; text-align:center; }
+.ana-subs { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
+.ana-sub { font-size:11px; color:#333; text-align:center; transition:color 0.4s; }
+.ana-sub.active { color:var(--gold); }
+
+/* RESULT */
+#screen-result { padding:14px; gap:11px; overflow-y:auto; }
+.r-hero { border-radius:14px; overflow:hidden; border:1px solid #2A2A1A; flex-shrink:0; }
+.r-color { height:90px; }
+.r-info { padding:12px 14px; background:var(--bg2); display:flex; justify-content:space-between; align-items:center; }
+.r-name { font-size:17px; }
+.r-sheen { font-size:11px; color:var(--muted); margin-top:2px; }
+.r-hex { font-size:13px; color:var(--gold); font-family:monospace; }
+.r-rgb { font-size:9px; color:#555; margin-top:2px; font-family:monospace; }
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; flex-shrink:0; }
+.stat { padding:10px 8px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; text-align:center; }
+.stat-v { font-size:16px; color:var(--gold); font-weight:600; }
+.stat-l { font-size:8px; color:#555; letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.matches-title { font-size:10px; letter-spacing:2px; color:var(--muted); flex-shrink:0; }
+.matches { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+.match-card { padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; gap:12px; }
+.match-card.top { border-color:var(--gold); background:#141410; }
+.match-swatch { width:36px; height:36px; border-radius:6px; flex-shrink:0; border:1px solid rgba(255,255,255,0.08); }
+.match-brand { font-size:9px; color:var(--gold); letter-spacing:1px; text-transform:uppercase; margin-bottom:2px; }
+.match-name { font-size:13px; color:var(--text); }
+.match-num { font-size:10px; color:var(--muted); margin-top:1px; }
+.match-pct { margin-left:auto; font-size:14px; color:var(--gold); font-weight:600; flex-shrink:0; }
+.perlin-wrap { border-radius:12px; overflow:hidden; border:1px solid var(--border); flex-shrink:0; }
+#perlin-canvas { width:100%; display:block; }
+.perlin-lbl { padding:7px; background:var(--bg2); font-size:8px; color:#444; letter-spacing:2px; text-align:center; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="header">
+  <div><div id="logo">Match<span>Patch</span></div><div id="logo-sub">Wall Scanner v4</div></div>
+  <button id="reset-btn" onclick="resetApp()">RESET</button>
+</div>
+
+<!-- INTRO -->
+<div id="screen-intro" class="screen active">
+  <div class="hero">
+    <div class="hero-ring">📷</div>
+    <div class="hero-title">Scan Your Wall</div>
+    <div class="hero-sub">Point camera at a blank area of wall. Tap the wall to lock white balance. Then tap shutter.</div>
+  </div>
+  <div class="tip-box">
+    <div class="tip-title">HOW IT WORKS</div>
+    <div class="tip-item"><div class="tip-num">1</div><div>Point camera at a blank area of wall — no furniture or objects in frame</div></div>
+    <div class="tip-item"><div class="tip-num">2</div><div><strong style="color:var(--gold)">Tap the wall</strong> in the viewfinder to lock focus and white balance</div></div>
+    <div class="tip-item"><div class="tip-num">3</div><div>Wait 3 seconds for the countdown — hold very still</div></div>
+    <div class="tip-item"><div class="tip-num">4</div><div>App captures 10 samples and averages them for accuracy</div></div>
+  </div>
+  <button class="btn-gold" onclick="startCamera()">SCAN MY WALL</button>
+</div>
+
+<!-- CAMERA -->
+<div id="screen-camera" class="screen">
+  <video id="video" playsinline autoplay muted></video>
+  <div id="tap-area" onclick="handleTap(event)"></div>
+  <div id="focus-dot"></div>
+  <div id="cam-ui">
+    <div id="cam-status">
+      <div id="cam-status-icon">👆</div>
+      <div id="cam-status-title">Tap the wall to begin</div>
+      <div id="cam-status-sub">Point camera at a blank area of wall first</div>
+    </div>
+    <div id="viewfinder">
+      <div id="live-chip">
+        <div id="lc-swatch"></div>
+        <div><div id="lc-label">LIVE</div><div id="lc-hex"></div></div>
+      </div>
+      <div id="light-badge">
+        <div id="light-dot"></div>
+        <span id="light-text">LIGHT</span>
+      </div>
+      <div id="countdown-wrap">
+        <svg id="countdown-svg" width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="35" fill="rgba(0,0,0,0.5)" stroke="#1A1A1A" stroke-width="4"/>
+          <circle id="countdown-circle" cx="40" cy="40" r="35"/>
+        </svg>
+        <div id="countdown-num">3</div>
+      </div>
+      <div id="sample-strip">
+        <div class="s-sample" id="s0"></div>
+        <div class="s-sample" id="s1"></div>
+        <div class="s-sample" id="s2"></div>
+        <div class="s-sample" id="s3"></div>
+        <div class="s-sample" id="s4"></div>
+        <div class="s-sample" id="s5"></div>
+        <div class="s-sample" id="s6"></div>
+        <div class="s-sample" id="s7"></div>
+        <div class="s-sample" id="s8"></div>
+        <div class="s-sample" id="s9"></div>
+      </div>
+      <div id="wb-badge">TAP WALL TO LOCK</div>
+    </div>
+  </div>
+  <div id="cam-bottom">
+    <button id="shutter-btn" class="disabled" onclick="captureNow()">
+      <div id="shutter-inner">📸</div>
+    </button>
+    <div id="shutter-hint">TAP WALL FIRST TO LOCK WHITE BALANCE</div>
+  </div>
+</div>
+
+<!-- ANALYZING -->
+<div id="screen-analyzing" class="screen">
+  <div class="spin-wrap"><div class="spin-o"></div><div class="spin-i"></div><div class="spin-icon">🎨</div></div>
+  <div><div class="ana-title">Analyzing Color</div>
+    <div class="ana-subs">
+      <div class="ana-sub" id="ana-1">Averaging 10 samples...</div>
+      <div class="ana-sub" id="ana-2">White balance correction...</div>
+      <div class="ana-sub" id="ana-3">Matching paint database...</div>
+      <div class="ana-sub" id="ana-4">Building your patch...</div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div id="screen-result" class="screen">
+  <div class="r-hero">
+    <div class="r-color" id="r-color"></div>
+    <div class="r-info">
+      <div><div class="r-name" id="r-name"></div><div class="r-sheen" id="r-sheen"></div></div>
+      <div style="text-align:right"><div class="r-hex" id="r-hex"></div><div class="r-rgb" id="r-rgb"></div></div>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-v" id="s-conf"></div><div class="stat-l">Confidence</div></div>
+    <div class="stat"><div class="stat-v" id="s-hue"></div><div class="stat-l">Hue</div></div>
+    <div class="stat"><div class="stat-v" id="s-light"></div><div class="stat-l">Lightness</div></div>
+  </div>
+  <div class="matches-title">CLOSEST PAINT MATCHES</div>
+  <div class="matches" id="matches"></div>
+  <div class="perlin-wrap">
+    <canvas id="perlin-canvas" width="380" height="160"></canvas>
+    <div class="perlin-lbl">Perlin Noise Edge — Unique To This Order</div>
+  </div>
+  <button class="btn-gold" id="order-btn" style="flex-shrink:0">ORDER THIS PATCH</button>
+  <button class="btn-outline" onclick="resetApp()" style="flex-shrink:0;margin-bottom:8px">SCAN AGAIN</button>
+</div>
+</div>
+<canvas id="hc" style="display:none"></canvas>
+
+<script>
+// ─── Paint DB ─────────────────────────────────────────────────────────────────
+const DB=[
+  {brand:'Benjamin Moore',name:'White Dove',num:'OC-17',r:245,g:243,b:236},
+  {brand:'Benjamin Moore',name:'Chantilly Lace',num:'OC-65',r:251,g:251,b:248},
+  {brand:'Benjamin Moore',name:'Simply White',num:'OC-117',r:250,g:247,b:237},
+  {brand:'Benjamin Moore',name:'Cloud White',num:'OC-130',r:244,g:240,b:229},
+  {brand:'Benjamin Moore',name:'Pale Oak',num:'OC-20',r:218,g:209,b:196},
+  {brand:'Benjamin Moore',name:'Revere Pewter',num:'HC-172',r:196,g:188,b:175},
+  {brand:'Benjamin Moore',name:'Edgecomb Gray',num:'HC-173',r:214,g:207,b:194},
+  {brand:'Benjamin Moore',name:'Gray Owl',num:'OC-52',r:196,g:194,b:186},
+  {brand:'Benjamin Moore',name:'Stonington Gray',num:'HC-170',r:182,g:183,b:178},
+  {brand:'Benjamin Moore',name:'Bleeker Beige',num:'HC-80',r:196,g:186,b:166},
+  {brand:'Benjamin Moore',name:'Manchester Tan',num:'HC-81',r:204,g:190,b:163},
+  {brand:'Benjamin Moore',name:'Muslin',num:'OC-12',r:226,g:216,b:197},
+  {brand:'Benjamin Moore',name:'White Sand',num:'OC-10',r:228,g:218,b:202},
+  {brand:'Benjamin Moore',name:'Linen White',num:'OC-146',r:236,g:228,b:212},
+  {brand:'Benjamin Moore',name:'Indian White',num:'OC-93',r:232,g:222,b:204},
+  {brand:'Benjamin Moore',name:'Ozark Shadows',num:'MSL-89',r:175,g:166,b:150},
+  {brand:'Sherwin-Williams',name:'Accessible Beige',num:'SW 7036',r:209,g:199,b:183},
+  {brand:'Sherwin-Williams',name:'Balanced Beige',num:'SW 7037',r:203,g:191,b:173},
+  {brand:'Sherwin-Williams',name:'Agreeable Gray',num:'SW 7029',r:209,g:201,b:189},
+  {brand:'Sherwin-Williams',name:'Repose Gray',num:'SW 7015',r:189,g:185,b:179},
+  {brand:'Sherwin-Williams',name:'Mindful Gray',num:'SW 7016',r:184,g:178,b:168},
+  {brand:'Sherwin-Williams',name:'Colonnade Gray',num:'SW 7641',r:182,g:176,b:165},
+  {brand:'Sherwin-Williams',name:'Functional Gray',num:'SW 7024',r:177,g:171,b:161},
+  {brand:'Sherwin-Williams',name:'Worldly Gray',num:'SW 7043',r:192,g:186,b:176},
+  {brand:'Sherwin-Williams',name:'Passive',num:'SW 7064',r:196,g:194,b:185},
+  {brand:'Sherwin-Williams',name:'Crushed Ice',num:'SW 7647',r:214,g:212,b:206},
+  {brand:'Sherwin-Williams',name:'Alabaster',num:'SW 7008',r:237,g:233,b:222},
+  {brand:'Sherwin-Williams',name:'Navajo White',num:'SW 6126',r:234,g:221,b:198},
+  {brand:'Sherwin-Williams',name:'Antique White',num:'SW 6119',r:237,g:228,b:210},
+  {brand:'Sherwin-Williams',name:'Creamy',num:'SW 7012',r:240,g:233,b:213},
+  {brand:'Sherwin-Williams',name:'Wool Skein',num:'SW 6148',r:213,g:204,b:186},
+  {brand:'Sherwin-Williams',name:'Kilim Beige',num:'SW 6106',r:207,g:189,b:161},
+  {brand:'Sherwin-Williams',name:'Macadamia',num:'SW 6142',r:206,g:193,b:170},
+  {brand:'Sherwin-Williams',name:'Requisite Gray',num:'SW 7023',r:168,g:163,b:154},
+  {brand:'Sherwin-Williams',name:'Dovetail',num:'SW 7018',r:143,g:138,b:129},
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let stream=null,raf=null,cameraReady=false;
+let wbLocked=false,counting=false,countInterval=null;
+let capturedSamples=[],brightness=0;
+const hc=document.getElementById('hc');
+
+// ─── Screens ──────────────────────────────────────────────────────────────────
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  document.getElementById('reset-btn').style.display=id==='intro'?'none':'block';
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+async function startCamera(){
+  show('camera');
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}
+    });
+    const v=document.getElementById('video');
+    v.srcObject=stream; await v.play();
+    cameraReady=true;
+    startLiveLoop();
+  }catch(e){
+    setStatus('🚫','Camera access required','Tap AA in Safari address bar → Website Settings → Camera → Allow');
+  }
+}
+
+function stopCamera(){
+  if(raf){cancelAnimationFrame(raf);raf=null;}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  cameraReady=false;
+}
+
+function setStatus(i,t,s){
+  document.getElementById('cam-status-icon').textContent=i;
+  document.getElementById('cam-status-title').textContent=t;
+  document.getElementById('cam-status-sub').textContent=s;
+}
+
+// ─── Tap to focus + WB lock ───────────────────────────────────────────────────
+function handleTap(e){
+  if(!cameraReady||counting)return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+
+  // Show focus dot
+  const fd=document.getElementById('focus-dot');
+  fd.style.left=x+'px';
+  fd.style.top=y+'px';
+  fd.className='show';
+  setTimeout(()=>fd.className='',1000);
+
+  // Lock WB — wait 1.5s for camera to stabilize on the tapped area
+  setStatus('⏳','Locking white balance...','Hold still — stabilizing in 1.5 seconds');
+  document.getElementById('wb-badge').style.display='block';
+  document.getElementById('wb-badge').className='';
+  document.getElementById('wb-badge').textContent='LOCKING...';
+
+  setTimeout(()=>{
+    wbLocked=true;
+    document.getElementById('wb-badge').className='locked';
+    document.getElementById('wb-badge').textContent='✓ WHITE BALANCE LOCKED';
+    setStatus('✅','White balance locked','Now tap shutter to capture');
+    document.getElementById('shutter-btn').classList.remove('disabled');
+    document.getElementById('shutter-hint').textContent='TAP SHUTTER TO CAPTURE 10 SAMPLES';
+  },1500);
+}
+
+// ─── Capture — takes 10 samples over 3 seconds ────────────────────────────────
+function captureNow(){
+  if(!wbLocked||counting)return;
+  counting=true;
+  capturedSamples=[];
+  document.getElementById('shutter-btn').className='counting';
+  document.getElementById('countdown-wrap').className='show';
+
+  // Reset sample dots
+  for(let i=0;i<10;i++){
+    const d=document.getElementById('s'+i);
+    d.className='s-sample';
+    d.style.background='';
+  }
+
+  let timeLeft=3;
+  document.getElementById('countdown-num').textContent=timeLeft;
+  document.getElementById('countdown-circle').style.strokeDashoffset='220';
+  setStatus('📸','Hold perfectly still','Capturing 10 samples...');
+
+  const startTime=Date.now();
+  const duration=3000;
+
+  countInterval=setInterval(()=>{
+    const elapsed=Date.now()-startTime;
+    const progress=Math.min(1,elapsed/duration);
+    // Fill countdown ring
+    document.getElementById('countdown-circle').style.strokeDashoffset=(220-(220*progress))+'';
+    timeLeft=Math.max(0,Math.ceil(3-elapsed/1000));
+    document.getElementById('countdown-num').textContent=timeLeft||'';
+
+    // Sample every 300ms = 10 samples
+    const sampleIdx=Math.floor(elapsed/300);
+    if(sampleIdx<10&&sampleIdx>=capturedSamples.length){
+      const c=getFrameColor();
+      if(c){
+        capturedSamples.push(c);
+        const dot=document.getElementById('s'+capturedSamples.length-1);
+        if(dot){dot.style.background=toHex(c);dot.className='s-sample filled';}
+      }
+    }
+
+    if(elapsed>=duration){
+      clearInterval(countInterval);
+      document.getElementById('countdown-wrap').className='';
+      finishCapture();
+    }
+  },50);
+}
+
+function finishCapture(){
+  counting=false;
+  stopCamera();
+  show('analyzing');
+
+  setTimeout(()=>document.getElementById('ana-1').classList.add('active'),200);
+  setTimeout(()=>document.getElementById('ana-2').classList.add('active'),700);
+  setTimeout(()=>document.getElementById('ana-3').classList.add('active'),1200);
+  setTimeout(()=>{
+    document.getElementById('ana-4').classList.add('active');
+
+    // Average all samples — removes outliers
+    if(capturedSamples.length===0){resetApp();return;}
+
+    let r=0,g=0,b=0;
+    capturedSamples.forEach(s=>{r+=s.r;g+=s.g;b+=s.b;});
+    r=Math.round(r/capturedSamples.length);
+    g=Math.round(g/capturedSamples.length);
+    b=Math.round(b/capturedSamples.length);
+
+    // Brightness-aware white balance correction
+    // iPhone camera underexposes and adds blue cast in indoor light
+    // We correct based on measured brightness
+    const lum=r*0.299+g*0.587+b*0.114;
+
+    // Exposure correction — lift shadows toward true wall value
+    // Walls typically have 55-75% lightness
+    // If reading is below 45% lightness the camera is underexposing
+    const targetLum=Math.max(lum, lum*1.18);
+    const exposureFactor=targetLum/Math.max(lum,1);
+    r=Math.min(255,Math.round(r*exposureFactor));
+    g=Math.min(255,Math.round(g*exposureFactor));
+    b=Math.min(255,Math.round(b*exposureFactor));
+
+    // Warm cast correction — reduce blue, boost red slightly
+    r=Math.min(255,Math.round(r*1.04));
+    g=Math.min(255,Math.round(g*1.01));
+    b=Math.min(255,Math.round(b*0.95));
+
+    const color={r,g,b};
+    const hex=toHex(color);
+    const hsl=toHsl(color);
+    const matches=findMatches(color);
+    const conf=Math.round(100-((matches[0].dist/300)*100));
+    showResult({color,hex,hsl,matches,conf,samples:capturedSamples.length});
+  },1800);
+}
+
+// ─── Color from frame ─────────────────────────────────────────────────────────
+function getFrameColor(){
+  const v=document.getElementById('video');
+  if(!v||v.readyState<2)return null;
+  const ctx=hc.getContext('2d');
+  hc.width=v.videoWidth||640; hc.height=v.videoHeight||480;
+  ctx.drawImage(v,0,0,hc.width,hc.height);
+  // Sample center 20% — tight precision zone
+  const x0=Math.floor(hc.width*0.4),y0=Math.floor(hc.height*0.4);
+  const w=Math.floor(hc.width*0.2),h=Math.floor(hc.height*0.2);
+  const d=ctx.getImageData(x0,y0,w,h).data;
+  let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=8){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+  if(!n)return null;
+  r=Math.round(r/n);g=Math.round(g/n);b=Math.round(b/n);
+  brightness=Math.round(r*0.299+g*0.587+b*0.114);
+  return{r,g,b};
+}
+
+// ─── Live loop ────────────────────────────────────────────────────────────────
+function startLiveLoop(){
+  function loop(){
+    const c=getFrameColor();
+    if(c){
+      const hex=toHex(c);
+      document.getElementById('live-chip').style.display='flex';
+      document.getElementById('lc-swatch').style.background=hex;
+      document.getElementById('lc-hex').textContent=hex.toUpperCase();
+      const good=brightness>50&&brightness<240;
+      const ld=document.getElementById('light-dot'),lt=document.getElementById('light-text');
+      ld.className=good?'good':'bad';
+      lt.className=good?'good':'';
+      lt.textContent=good?'LIGHT OK':brightness<=50?'TOO DARK':'TOO BRIGHT';
+    }
+    raf=requestAnimationFrame(loop);
+  }
+  raf=requestAnimationFrame(loop);
+}
+
+// ─── Paint matching ───────────────────────────────────────────────────────────
+function colorDist(a,b){
+  return Math.sqrt(
+    Math.pow((a.r-b.r)*0.30,2)+
+    Math.pow((a.g-b.g)*0.59,2)+
+    Math.pow((a.b-b.b)*0.11,2)
+  );
+}
+function findMatches(c){
+  return DB.map(p=>({...p,dist:colorDist(c,{r:p.r,g:p.g,b:p.b})}))
+           .sort((a,b)=>a.dist-b.dist).slice(0,3);
+}
+
+// ─── Show result ──────────────────────────────────────────────────────────────
+function showResult(d){
+  document.getElementById('r-color').style.background=d.hex;
+  document.getElementById('r-name').textContent=colorName(d.color);
+  document.getElementById('r-sheen').textContent=sheenName(d.color);
+  document.getElementById('r-hex').textContent=d.hex.toUpperCase();
+  document.getElementById('r-rgb').textContent='RGB '+d.color.r+' '+d.color.g+' '+d.color.b;
+  document.getElementById('s-conf').textContent=d.conf+'%';
+  document.getElementById('s-hue').textContent=d.hsl.h+'°';
+  document.getElementById('s-light').textContent=d.hsl.l+'%';
+  const mc=document.getElementById('matches');
+  mc.innerHTML='';
+  d.matches.forEach((m,i)=>{
+    const pct=Math.max(0,Math.round(100-((m.dist/300)*100)));
+    const el=document.createElement('div');
+    el.className='match-card'+(i===0?' top':'');
+    el.innerHTML='<div class="match-swatch" style="background:rgb('+m.r+','+m.g+','+m.b+')"></div>'
+      +'<div><div class="match-brand">'+m.brand+'</div><div class="match-name">'+m.name+'</div><div class="match-num">'+m.num+'</div></div>'
+      +'<div class="match-pct">'+pct+'%</div>';
+    mc.appendChild(el);
+  });
+  document.getElementById('order-btn').textContent='ORDER — '+d.matches[0].name.toUpperCase();
+  drawPerlin(d.hex);
+  show('result');
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function toHex({r,g,b}){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}
+function toHsl({r,g,b}){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0;}else{const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break;}}return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};}
+function colorName({r,g,b}){const{h,s,l}=toHsl({r,g,b});if(l>90)return s<5?'Pure White':'Off White';if(l>80)return s<8?'Light Gray':h<30?'Warm White':h<60?'Ivory':'Pearl';if(l>68)return s<10?'Silver':h<30?'Cream':h<60?'Warm Beige':'Sage';if(l>55)return s<12?'Light Gray':h<30?'Greige':h<60?'Sand':'Soft Green';if(l>42)return s<15?'Medium Gray':h<30?'Tan':'Slate';return s<15?'Charcoal':'Dark Tone';}
+function sheenName({r,g,b}){const{l}=toHsl({r,g,b});if(l>80)return'Flat / Matte';if(l>65)return'Eggshell';if(l>50)return'Satin';return'Semi-Gloss';}
+
+// ─── Perlin ───────────────────────────────────────────────────────────────────
+function noise(x,y,sd){const n=Math.sin(x*127.1+y*311.7+sd*74.3)*43758.5453;return n-Math.floor(n);}
+function sNoise(x,y,sd){const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);return noise(ix,iy,sd)+(noise(ix+1,iy,sd)-noise(ix,iy,sd))*ux+(noise(ix,iy+1,sd)-noise(ix,iy,sd))*uy+(noise(ix+1,iy+1,sd)-noise(ix+1,iy,sd)-noise(ix,iy+1,sd)+noise(ix,iy,sd))*ux*uy;}
+function drawPerlin(hex){const cv=document.getElementById('perlin-canvas'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height,sd=Math.random()*100;const pr=parseInt(hex.slice(1,3),16),pg=parseInt(hex.slice(3,5),16),pb=parseInt(hex.slice(5,7),16);const wr=Math.max(0,pr-18),wg=Math.max(0,pg-18),wb=Math.max(0,pb-18),pcr=Math.min(255,pr+16),pcg=Math.min(255,pg+16),pcb=Math.min(255,pb+16);ctx.fillStyle='rgb('+wr+','+wg+','+wb+')';ctx.fillRect(0,0,W,H);const im=ctx.getImageData(0,0,W,H),px=im.data,cx=W/2,cy=H/2,br=Math.min(W,H)*0.35;for(let y=0;y<H;y++){for(let x=0;x<W;x++){const dx=x-cx,dy=y-cy,dist=Math.sqrt(dx*dx+dy*dy),ang=Math.atan2(dy,dx),nv=sNoise(Math.cos(ang)*3+5,Math.sin(ang)*3+5,sd)*2-1,er=br+nv*br*0.22,tw=br*0.28,ir=er-tw;if(dist<ir){const i=(y*W+x)*4;px[i]=pcr;px[i+1]=pcg;px[i+2]=pcb;px[i+3]=255;}else if(dist<er){const t=(dist-ir)/tw,op=1-t*t*(3-2*t),i=(y*W+x)*4;px[i]=Math.round(pcr*op+wr*(1-op));px[i+1]=Math.round(pcg*op+wg*(1-op));px[i+2]=Math.round(pcb*op+wb*(1-op));px[i+3]=255;}}}ctx.putImageData(im,0,0);}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+function resetApp(){
+  if(countInterval){clearInterval(countInterval);countInterval=null;}
+  stopCamera();
+  wbLocked=false;counting=false;capturedSamples=[];
+  show('intro');
+}
+</script>
+</body>
+</html>
